@@ -297,24 +297,18 @@ icap_components:
         command: ["/bin/sh", "-c"]
         args:
           - | 
-            apk add curl jq openssl
             stop() {
               echo 'Deactivating using the MD ICAP Server API'
-              curl -H "apikey: $APIKEY" -X POST "https://localhost:$REST_PORT/admin/license/deactivation"
+              wget -q -O- --header "apikey: $APIKEY" --post-data "" "localhost:$REST_PORT/admin/license/deactivation"
               echo 'Deactivating using activation server API'
-              curl -X GET "https://$ACTIVATION_SERVER/deactivation?key=$LICENSE_KEY&deployment=$DEPLOYMENT"
+              wget -q -O- "https://$ACTIVATION_SERVER/deactivation?key=$LICENSE_KEY&deployment=$DEPLOYMENT"
               exit 0
             }
             trap stop SIGTERM SIGINT SIGQUIT
 
             until [ -n $DEPLOYMENT ] && [ $DEPLOYMENT != null ]; do
-              if openssl s_client -connect $MD_BASE_URL:$REST_PORT < /dev/null &> /dev/null; then
-                export PROTOCOL="https"
-              else
-                export PROTOCOL="http"
-              fi
               echo 'Checking...'
-              export DEPLOYMENT=$(curl --insecure --silent -H "apikey: $APIKEY" "$PROTOCOL://localhost:$REST_PORT/admin/license" | jq -r ".deployment")
+              export DEPLOYMENT=$(wget -q -O- --header "apikey: $APIKEY" "localhost:$REST_PORT/admin/license" | grep -o '"deployment":\s*"[^"]*' | grep -o '[^"]*$')
               echo "Deployment ID: $DEPLOYMENT"
               sleep 1
             done
